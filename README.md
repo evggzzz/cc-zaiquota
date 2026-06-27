@@ -11,10 +11,11 @@
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
 
-<p align="center">
-  Show your <strong>z.ai GLM Coding Plan quota</strong> (5-hour + weekly + MCP) as a second line<br>
-  in the <a href="https://code.claude.com">Claude Code</a> statusline — right next to your chat input.
-</p>
+# Know exactly when z.ai will throttle you — before it happens.
+
+A live, battery-style **quota meter for the z.ai GLM Coding Plan**, right in your
+[Claude Code](https://code.claude.com) statusline. The 5-hour, weekly, and MCP
+windows — each with a color-coded bar and a countdown to reset.
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -26,39 +27,44 @@
 
 ---
 
+## 😤 The problem
+
+z.ai throttles you the moment a window fills — and you're flying blind, because:
+
+- Claude Code's **native meter reports `0` forever** on z.ai (that field is Claude.ai-only).
+- The **official** `glm-plan-usage` plugin works, but every check spins up an AI agent that takes **~20 seconds**.
+
+**cc-zaiquota shows the same data — instantly, always-on, and ban-safe.**
+
 ## ✨ Features
 
 | | |
 |---|---|
-| ⏳ **Three windows at a glance** | 5-hour rolling, weekly (7-day), and MCP monthly — each with a color-coded bar, %, and time-to-reset. |
-| 🎨 **Rich, compact** | Colored battery bars + bold % + dimmed countdowns. No double-width emoji by default (set `ZAI_ICONS=1` on wide terminals). |
-| 🧩 **Composes with cc-contextbar** | Stacks under [cc-contextbar](https://github.com/evggzzz/cc-contextbar) for a two-line statusline. Each works standalone too. |
-| 🛡️ **Ban-safe by design** | The statusline reads a local cache only — **zero network per render**. Refresh is on demand and reuses z.ai's *exact* official quota request. |
-| ⚡ **No AI agent** | Unlike the official `glm-plan-usage` plugin, the refresh is a single shell call (milliseconds, not ~20s). |
+| ⏳ **Three windows, one glance** | 5h rolling · weekly · MCP — each a colored bar, a %, and a reset countdown. |
+| 🟢🟡🔴 **Color-coded** | Green → yellow → red as you burn a window. **Bold-red when you're about to get throttled.** |
+| ⚡ **Instant, not 20 s** | One shell call — not an LLM. Milliseconds. |
+| 🛡️ **Ban-safe** | Statusline = zero network. Refresh reuses z.ai's *exact* official request. |
+| ♻️ **Auto-refresh** | Throttled to ≤1 fetch per 10 min while you work; silent when idle. |
+| 🧩 **Stacks with cc-contextbar** | Two-line statusline next to [cc-contextbar](https://github.com/evggzzz/cc-contextbar). Works standalone too. |
 
-## 🤔 Why
+## 📊 How it compares
 
-> [!IMPORTANT]
-> z.ai's Coding Plan throttles you when the **5-hour** or **weekly** window fills. Claude Code's built-in `rate_limits` statusline field is **Claude.ai-only** and is absent for z.ai — so you need a dedicated fetch. This widget does it safely.
+| | Native | Official plugin | **cc-zaiquota** |
+|---|:--:|:--:|:--:|
+| Shows z.ai quota | ❌ always `0` | ✅ | ✅ |
+| Always-on statusline | ❌ | ❌ on-demand | ✅ |
+| Query latency | — | ~20 s (AI agent) | **ms (shell)** |
+| Auto-refresh | — | ❌ | ✅ |
+| Ban-safe | — | ✅ official | ✅ same request |
 
-## 🛡️ Ban-safe — how
+## 🛡️ Ban-safe by design
 
-- The statusline widget **never calls the network**; it reads `~/.claude/zaiquota/quota.cache`.
-- `/cc-zaiquota:refresh` performs the **exact same request** as z.ai's official `glm-plan-usage` plugin: `GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`. Same endpoint, same headers → indistinguishable from the official tool.
-- On-demand only by default (no polling loop).
-
-## ♻️ Auto-refresh
-
-The cache refreshes automatically via `Stop` and `SessionStart` hooks — on every turn and at session start, **throttled to one fetch per `ZAI_REFRESH_MIN` (default 600s)**. The widget stays fresh while you're active and never polls while idle.
-
-- Tune the interval: `ZAI_REFRESH_MIN=300` in `~/.claude/zaiquota/config.env`.
-- Force an immediate update: `/cc-zaiquota:refresh` (uses `--force`, bypasses the throttle).
-
-The statusline itself still makes **zero** network calls; only the throttled fetcher hits the API.
+- The statusline reads a local cache — **zero network per render**.
+- A refresh sends the **exact** official request (`GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`). Same endpoint, same headers → indistinguishable from `glm-plan-usage`.
 
 ## 🚀 Install
 
-> Requires `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` in your environment (the official plugin uses the same), and [`jq`](https://stedolan.github.io/jq/).
+> Requires `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` (same as the official plugin) and [`jq`](https://stedolan.github.io/jq/).
 
 **Option A — as a plugin**
 
@@ -67,7 +73,7 @@ claude plugin marketplace add evggzzz/cc-zaiquota
 claude plugin install cc-zaiquota@cc-zaiquota
 ```
 
-Then inside Claude Code:
+Then in Claude Code:
 
 ```
 /cc-zaiquota:refresh
@@ -79,29 +85,24 @@ Then inside Claude Code:
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-Both copy the scripts under `~/.claude/zaiquota/`, drop a composer at `~/.claude/statusline-compose.sh`, and point `statusLine` at it (a `.bak` backup is written first). **Restart Claude Code**, then run `/cc-zaiquota:refresh` to populate the cache.
+Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/statusline-compose.sh`, point `statusLine` at it, and register throttled `Stop`/`SessionStart` auto-refresh hooks (a `.bak` backup is written first). **Restart Claude Code**, then `/cc-zaiquota:refresh` once.
 
 ## 🔬 How it works
 
-- `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`, stores `.data` + a timestamp in the cache.
-- `quota.sh` → parses `data.limits[]`: the two `TOKENS_LIMIT` entries are 5h (sooner `nextResetTime`) and weekly (later); `TIME_LIMIT` is MCP monthly. Time-to-reset is computed live from each absolute `nextResetTime`.
-- `compose.sh` → runs cc-contextbar (line 1) then this widget (line 2); set as the `statusLine` command.
+- `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`, stores `.data` + a timestamp.
+- `quota.sh` → parses `data.limits[]`: the two `TOKENS_LIMIT` entries are 5h (sooner `nextResetTime`) and weekly (later); `TIME_LIMIT` is MCP monthly. Countdowns are computed live from each absolute `nextResetTime`.
+- `compose.sh` → runs cc-contextbar (line 1) then this widget (line 2); set as `statusLine`.
 
 ## ⚙️ Customize
 
-Create `~/.claude/zaiquota/config.env` to override defaults:
+`~/.claude/zaiquota/config.env`:
 
 | Var | Default | Effect |
 |---|---|---|
-| `ZAI_SEGMENTS` | `10` | bar cell count |
+| `ZAI_SEGMENTS` | `10` | bar cells |
 | `ZAI_FILL` / `ZAI_EMPTY` | `█` / `░` | bar glyphs |
-| `ZAI_ICONS` | `0` | `1` to prepend emoji icons (wide terminals) |
-
-```bash
-# ~/.claude/zaiquota/config.env
-ZAI_SEGMENTS=8
-ZAI_ICONS=1
-```
+| `ZAI_ICONS` | `0` | `1` = emoji icons (wide terminals) |
+| `ZAI_REFRESH_MIN` | `600` | auto-refresh min interval (s) |
 
 ## 🗑️ Uninstall
 
@@ -109,7 +110,11 @@ ZAI_ICONS=1
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-Reverts `statusLine` to cc-contextbar (if present) and removes `~/.claude/zaiquota/`.
+Reverts `statusLine` to cc-contextbar and removes the hooks + `~/.claude/zaiquota/`.
+
+---
+
+> ⭐ **If z.ai has ever throttled you mid-flow — this is for you.**
 
 ## ⭐ Star History
 

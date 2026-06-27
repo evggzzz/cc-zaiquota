@@ -11,10 +11,9 @@
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
 
-<p align="center">
-  把你的 <strong>z.ai GLM Coding Plan 用量</strong>（5 小时 + 每周 + MCP）显示为<br>
-  <a href="https://code.claude.com">Claude Code</a> 状态栏的第二行。
-</p>
+# 在被 z.ai 限流之前，先看清它。
+
+一个常驻 [Claude Code](https://code.claude.com) 状态栏的 z.ai GLM Coding Plan **用量仪表**。5 小时、每周、MCP 三个窗口，各带颜色条和重置倒计时。
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -36,10 +35,24 @@
 | 🛡️ **防封号设计** | 状态栏只读缓存，**每次渲染零网络请求**。刷新按需触发，且复用 z.ai 官方的*同一请求*。 |
 | ⚡ **不走 AI agent** | 不像官方 `glm-plan-usage` 插件那样经 LLM，刷新只是一次 shell 调用（毫秒级，而非约 20 秒）。 |
 
-## 🤔 为什么需要
+## 😤 问题出在哪
 
-> [!IMPORTANT]
-> z.ai Coding Plan 在 **5 小时**或**每周**额度用满时会限流。Claude Code 自带的 `rate_limits` 字段**仅限 Claude.ai**，在 z.ai 下并不存在 —— 所以需要单独获取。本插件安全地完成这件事。
+z.ai 在某个窗口用满的瞬间就会限流 —— 而你常常是盲飞，因为：
+
+- Claude Code 的**原生仪表在 z.ai 下永远是 `0`**（那个字段只给 Claude.ai 用）。
+- **官方** `glm-plan-usage` 插件能用，但每次查询都要起一个 AI agent，耗时**约 20 秒**。
+
+**cc-zaiquota 把同样的数据 —— 瞬时、常驻、防封号 —— 直接摆出来。**
+
+## 📊 横向对比
+
+| | 原生 | 官方插件 | **cc-zaiquota** |
+|---|:--:|:--:|:--:|
+| 显示 z.ai 用量 | ❌ 一直 `0` | ✅ | ✅ |
+| 常驻状态栏 | ❌ | ❌ 按需 | ✅ |
+| 查询延迟 | — | ~20 秒（AI） | **毫秒（shell）** |
+| 自动刷新 | — | ❌ | ✅ |
+| 防封号 | — | ✅ 官方 | ✅ 同一请求 |
 
 ## 🛡️ 如何避免封号
 
@@ -112,6 +125,10 @@ curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/in
 ```
 
 把 `statusLine` 恢复为 cc-contextbar（如已安装），并删除 `~/.claude/zaiquota/`。
+
+---
+
+> ⭐ **如果你曾被 z.ai 在干活时限流 —— 这就是为你做的。**
 
 ## ⭐ Star 历史
 

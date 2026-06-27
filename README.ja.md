@@ -11,9 +11,9 @@
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
 
-<p align="center">
-  <a href="https://code.claude.com">Claude Code</a> のステータスラインに、<strong>z.ai GLM Coding Plan のクォータ</strong>（5時間・週次・MCP）を2行目として表示します。
-</p>
+# z.ai の制限、引っかかる前にわかる。
+
+[Claude Code](https://code.claude.com) のステータスラインに常時表示される、z.ai GLM Coding Plan 向けの**クォータメーター**。5時間・週次・MCPの各ウィンドウを、カラーバーとリセットまでのカウントダウン付きで可視化します。
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -35,10 +35,24 @@
 | 🛡️ **BAN回避設計** | ステータスラインはキャッシュ読込のみで**描画ごとの通信ゼロ**。更新はオンデマンドで、z.ai公式と**同一のリクエスト**を使います。 |
 | ⚡ **AIエージェント不要** | 公式 `glm-plan-usage` プラグインと違い、更新はシェル1呼び出し（ミリ秒、約20秒ではありません）。 |
 
-## 🤔 なぜこれが必要か
+## 😤 問題
 
-> [!IMPORTANT]
-> z.ai の Coding Plan は **5時間**か**週次**ウィンドウを使い切ると制限がかかります。Claude Code 標準の `rate_limits` フィールドは **Claude.ai 専用**で z.ai では入らないため、別途取得が必要です。本ウィジェットはそれを安全に行います。
+z.ai はウィンドウを使い切った瞬間に制限をかけます。しかも、まったく見えないまま次々に作業してしまう――なぜなら：
+
+- Claude Code の**標準メーターは z.ai だと永遠に `0`** のまま（あのフィールドは Claude.ai 専用）。
+- **公式** `glm-plan-usage` プラグインは動くが、確認のたびにAIエージェントを起動して**約20秒**かかる。
+
+**cc-zaiquota は同じデータを一瞬で、常時、BAN安全に表示します。**
+
+## 📊 他との比較
+
+| | 標準 | 公式プラグイン | **cc-zaiquota** |
+|---|:--:|:--:|:--:|
+| z.aiクォータ表示 | ❌ ずっと `0` | ✅ | ✅ |
+| 常時表示 | ❌ | ❌ オンデマンド | ✅ |
+| 取得の速さ | — | 約20秒（AI経由） | **ミリ秒（シェル）** |
+| 自動更新 | — | ❌ | ✅ |
+| BAN安全 | — | ✅ 公式 | ✅ 同一リクエスト |
 
 ## 🛡️ BANを回避する仕組み
 
@@ -111,6 +125,10 @@ curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/in
 ```
 
 `statusLine` を cc-contextbar に戻し（存在すれば）、`~/.claude/zaiquota/` を削除します。
+
+---
+
+> ⭐ **z.ai の制限に作業中を止められたことがある人 ―― これ、あなたのためです。**
 
 ## ⭐ Star History
 
