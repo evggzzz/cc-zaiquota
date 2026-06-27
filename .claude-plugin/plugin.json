@@ -1,0 +1,10 @@
+{
+  "name": "cc-zaiquota",
+  "description": "Show z.ai GLM Coding Plan quota (5-hour + weekly + MCP) in the Claude Code statusline. Reads cached data only; refresh on demand. Ban-safe: reuses the exact official quota endpoint.",
+  "version": "1.0.0",
+  "author": { "name": "evggzzz", "url": "https://github.com/evggzzz" },
+  "license": "MIT",
+  "homepage": "https://github.com/evggzzz/cc-zaiquota",
+  "repository": "https://github.com/evggzzz/cc-zaiquota",
+  "keywords": ["statusline", "zai", "glm", "coding-plan", "quota", "claude-code"]
+}

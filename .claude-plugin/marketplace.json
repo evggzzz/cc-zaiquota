@@ -1,0 +1,11 @@
+{
+  "name": "cc-zaiquota",
+  "owner": { "name": "evggzzz" },
+  "plugins": [
+    {
+      "name": "cc-zaiquota",
+      "description": "z.ai GLM Coding Plan quota in the Claude Code statusline",
+      "source": "./"
+    }
+  ]
+}
