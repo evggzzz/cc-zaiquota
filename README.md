@@ -4,7 +4,7 @@ Show your **z.ai GLM Coding Plan quota** (5-hour + weekly + MCP) as a second lin
 
 ```
 🤖 glm-5.2 · [████░░░░░░] 42% · $1.23                                       ← cc-contextbar (line 1)
-⚡ 5h [█████░░░░░] 48% ⏲2h13m · 📅 wk [█░░░░░░░░░] 13% ⏲6d3h · 🔌 MCP 1% · ⟳ 3m ago   ← cc-zaiquota (line 2)
+⏳ 5h [█████░░░░░] 48% 2h13m · wk [█░░░░░░░░░] 13% 6d3h · MCP 1% · 3m   ← cc-zaiquota (line 2, default)
 ```
 
 Designed to compose on top of [cc-contextbar](https://github.com/evggzzz/cc-contextbar) — install both and you get a two-line statusline. Each works standalone too.
