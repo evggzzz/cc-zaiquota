@@ -43,6 +43,15 @@
 - `/cc-zaiquota:refresh` performs the **exact same request** as z.ai's official `glm-plan-usage` plugin: `GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`. Same endpoint, same headers → indistinguishable from the official tool.
 - On-demand only by default (no polling loop).
 
+## ♻️ Auto-refresh
+
+The cache refreshes automatically via `Stop` and `SessionStart` hooks — on every turn and at session start, **throttled to one fetch per `ZAI_REFRESH_MIN` (default 600s)**. The widget stays fresh while you're active and never polls while idle.
+
+- Tune the interval: `ZAI_REFRESH_MIN=300` in `~/.claude/zaiquota/config.env`.
+- Force an immediate update: `/cc-zaiquota:refresh` (uses `--force`, bypasses the throttle).
+
+The statusline itself still makes **zero** network calls; only the throttled fetcher hits the API.
+
 ## 🚀 Install
 
 > Requires `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` in your environment (the official plugin uses the same), and [`jq`](https://stedolan.github.io/jq/).

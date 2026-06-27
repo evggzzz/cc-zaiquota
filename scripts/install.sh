@@ -1,33 +1,57 @@
 #!/usr/bin/env bash
 # cc-zaiquota installer.
-#   install         place scripts under ~/.claude/zaiquota/ (+ composer at
-#                   ~/.claude/statusline-compose.sh) and wire settings.json.
-#   --uninstall     revert statusLine to cc-contextbar (if present) and remove
-#                   the cc-zaiquota files.
+#   install         place scripts, wire settings.json (statusLine -> composer),
+#                   and add Stop/SessionStart hooks for throttled auto-refresh.
+#   --uninstall     revert statusLine to cc-contextbar (if present), remove the
+#                   hooks, and delete the cc-zaiquota files.
 set -euo pipefail
 
 ZAI_DIR="$HOME/.claude/zaiquota"
 SETTINGS="$HOME/.claude/settings.json"
 COMPOSE="$HOME/.claude/statusline-compose.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+HOOK_CMD="bash \"$ZAI_DIR/quota-fetch.sh\" >/dev/null 2>&1 &"
 
 fetch() { # $1=name $2=dest
   if [ -f "$SCRIPT_DIR/$1" ]; then cp "$SCRIPT_DIR/$1" "$2"
   else echo "ERROR: bundled file missing: $1" >&2; exit 1; fi
 }
 
+# prune any cc-zaiquota hook entries from settings.json (idempotent),
+# then drop now-empty hook-type arrays
+prune_hooks() {
+  [ -f "$SETTINGS" ] || return 0
+  local tmp; tmp=$(mktemp)
+  jq '(.hooks // {}) |= ( with_entries(.value |= map(select(
+        ([.hooks[].command] | map(test("quota-fetch\\.sh")) | any) | not )))
+      | with_entries(select(.value | length > 0)) )' \
+    "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+}
+
+# add Stop + SessionStart hooks (idempotent: prunes first, then adds one each)
+add_hooks() {
+  local entry tmp
+  entry=$(jq -n --arg cmd "$HOOK_CMD" '{matcher:"",hooks:[{type:"command",command:$cmd}]}')
+  tmp=$(mktemp)
+  jq --argjson e "$entry" '
+    .hooks = ( (.hooks // {})
+      | .Stop = ((.Stop // []) + [$e])
+      | .SessionStart = ((.SessionStart // []) + [$e]) )
+  ' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+}
+
 if [ "${1:-install}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
   echo ">> Removing cc-zaiquota..."
   if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
     cp "$SETTINGS" "$SETTINGS.bak"
+    prune_hooks
     tmp=$(mktemp)
-    # revert to cc-contextbar if present, else drop statusLine
     if [ -x "$HOME/.claude/ctxbar/statusline.sh" ]; then
       jq --arg cmd "$HOME/.claude/ctxbar/statusline.sh" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
     else
       jq 'del(.statusLine)' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
     fi
-    echo "   statusLine reverted (backup: $SETTINGS.bak)"
+    echo "   hooks removed, statusLine reverted (backup: $SETTINGS.bak)"
   fi
   rm -rf "$ZAI_DIR" "$COMPOSE"
   echo ">> Done. Restart Claude Code."
@@ -48,11 +72,16 @@ tmp=$(mktemp)
 jq --arg cmd "$COMPOSE" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
 echo "   statusLine -> $COMPOSE  (backup: $SETTINGS.bak)"
 
+prune_hooks   # avoid duplicates on re-install
+add_hooks
+echo "   hooks -> Stop, SessionStart (throttled auto-refresh)"
+
 cat <<EOF
 
 >> Installed. Restart Claude Code.
->> Refresh quota:   /cc-zaiquota:refresh
-                    (or: bash $ZAI_DIR/quota-fetch.sh)
+>> Auto-refresh:    on every turn (Stop) + session start, throttled to
+                    once per \${ZAI_REFRESH_MIN:-600}s. Set ZAI_REFRESH_MIN to tune.
+>> Manual refresh:  /cc-zaiquota:refresh   (or: bash $ZAI_DIR/quota-fetch.sh --force)
 >> Uninstall:       bash install.sh --uninstall
 
 EOF

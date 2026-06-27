@@ -1,10 +1,32 @@
 #!/usr/bin/env bash
 # cc-zaiquota fetcher — updates ~/.claude/zaiquota/quota.cache
 #
-# Ban-safe: this performs the EXACT same request as z.ai's official
-# glm-plan-usage plugin (same endpoint, same Authorization header, same
-# Content-Type / Accept-Language). It is a single GET; no retries, no loop.
+# Ban-safe: performs the EXACT same request as z.ai's official glm-plan-usage
+# plugin (same endpoint, same Authorization header). Single GET, no retries.
+#
+# Throttle: skips the network call if the cache is younger than
+# ZAI_REFRESH_MIN (default 600s). Use --force to bypass (the manual
+# /cc-zaiquota:refresh command uses --force). This lets a frequent hook
+# (Stop / SessionStart) trigger it safely — at most one real call per window.
 set -euo pipefail
+
+CACHE_DIR="$HOME/.claude/zaiquota"
+CACHE="$CACHE_DIR/quota.cache"
+MIN_INTERVAL=${ZAI_REFRESH_MIN:-600}
+
+FORCE=0
+case "${1:-}" in
+  -f|--force) FORCE=1 ;;
+esac
+
+# throttle (unless --force)
+if [ "$FORCE" -eq 0 ] && [ -f "$CACHE" ]; then
+  last=$(jq -r '.fetched_at // 0' "$CACHE" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  if [ -n "${last:-0}" ] && [ "${last:-0}" -gt 0 ] && [ $(( now - last )) -lt "$MIN_INTERVAL" ]; then
+    exit 0   # fresh enough — skip silently
+  fi
+fi
 
 BASE_URL="${ANTHROPIC_BASE_URL:-}"
 TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
@@ -22,7 +44,6 @@ fi
 domain=$(printf '%s' "$BASE_URL" | sed -E 's|(https?://[^/]+).*|\1|')
 url="${domain}/api/monitor/usage/quota/limit"
 
-CACHE_DIR="$HOME/.claude/zaiquota"
 mkdir -p "$CACHE_DIR"
 
 tmp=$(mktemp)
@@ -41,6 +62,7 @@ fi
 
 fetched=$(date +%s)
 # store fetch timestamp + the .data object (keeps nextResetTime etc.)
-jq -c --argjson ts "$fetched" '{fetched_at:$ts, data:.data}' "$tmp" > "$CACHE_DIR/quota.cache"
+jq -c --argjson ts "$fetched" '{fetched_at:$ts, data:.data}' "$tmp" > "$CACHE"
 rm -f "$tmp"
-echo "✓ quota cache updated -> $CACHE_DIR/quota.cache"
+[ "$FORCE" -eq 1 ] && echo "✓ quota cache updated -> $CACHE"
+exit 0
