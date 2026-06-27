@@ -1,31 +1,53 @@
-# cc-zaiquota
+<p align="center">
+  <img src="assets/banner.svg" alt="cc-zaiquota" width="780">
+</p>
 
-Show your **z.ai GLM Coding Plan quota** (5-hour + weekly + MCP) as a second line in the [Claude Code](https://code.claude.com) statusline.
+<p align="center">
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.0.0-3fb950?style=flat-square"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
+  <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
+  <img src="https://img.shields.io/badge/built%20with-bash%20%2B%20jq-1f1f1f?style=flat-square">
+  <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
+</p>
 
-```
-🤖 glm-5.2 · [████░░░░░░] 42% · $1.23                                       ← cc-contextbar (line 1)
-⏳ 5h [█████░░░░░] 48% 2h13m · wk [█░░░░░░░░░] 13% 6d3h · MCP 1% · 3m   ← cc-zaiquota (line 2, default)
-```
+<p align="center">
+  Show your <strong>z.ai GLM Coding Plan quota</strong> (5-hour + weekly + MCP) as a second line<br>
+  in the <a href="https://code.claude.com">Claude Code</a> statusline — right next to your chat input.
+</p>
 
-Designed to compose on top of [cc-contextbar](https://github.com/evggzzz/cc-contextbar) — install both and you get a two-line statusline. Each works standalone too.
+<p align="center">
+  <img src="assets/demo.svg" alt="cc-zaiquota statusline demo" width="640">
+</p>
 
-## Why
+---
 
-z.ai's Coding Plan has a **5-hour rolling** and a **weekly** quota. Hitting them mid-session throttles you. This widget shows how much you have left and when each resets — right next to your chat input.
+## ✨ Features
 
-## Ban-safe by design
+| | |
+|---|---|
+| ⏳ **Three windows at a glance** | 5-hour rolling, weekly (7-day), and MCP monthly — each with a color-coded bar, %, and time-to-reset. |
+| 🎨 **Rich, compact** | Colored battery bars + bold % + dimmed countdowns. No double-width emoji by default (set `ZAI_ICONS=1` on wide terminals). |
+| 🧩 **Composes with cc-contextbar** | Stacks under [cc-contextbar](https://github.com/evggzzz/cc-contextbar) for a two-line statusline. Each works standalone too. |
+| 🛡️ **Ban-safe by design** | The statusline reads a local cache only — **zero network per render**. Refresh is on demand and reuses z.ai's *exact* official quota request. |
+| ⚡ **No AI agent** | Unlike the official `glm-plan-usage` plugin, the refresh is a single shell call (milliseconds, not ~20s). |
 
-- The statusline widget **never calls the network** — it reads a local cache (`~/.claude/zaiquota/quota.cache`).
-- The cache is refreshed **on demand** via `/cc-zaiquota:refresh`, which performs the **exact same request** as z.ai's official `glm-plan-usage` plugin (same endpoint, same `Authorization` header). No raw SDK, no polling loop.
-- (Claude Code's built-in `rate_limits` statusline field is Claude.ai-only and is **absent** for z.ai — so a dedicated fetch is required.)
+## 🤔 Why
 
-## Requirements
+> [!IMPORTANT]
+> z.ai's Coding Plan throttles you when the **5-hour** or **weekly** window fills. Claude Code's built-in `rate_limits` statusline field is **Claude.ai-only** and is absent for z.ai — so you need a dedicated fetch. This widget does it safely.
 
-- [Claude Code](https://code.claude.com) backed by z.ai (`ANTHROPIC_BASE_URL=https://api.z.ai/...`)
-- `ANTHROPIC_AUTH_TOKEN` set in your environment (the official plugin uses the same)
-- [`jq`](https://stedolan.github.io/jq/) — `brew install jq`
+## 🛡️ Ban-safe — how
 
-## Install
+- The statusline widget **never calls the network**; it reads `~/.claude/zaiquota/quota.cache`.
+- `/cc-zaiquota:refresh` performs the **exact same request** as z.ai's official `glm-plan-usage` plugin: `GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`. Same endpoint, same headers → indistinguishable from the official tool.
+- On-demand only by default (no polling loop).
+
+## 🚀 Install
+
+> Requires `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` in your environment (the official plugin uses the same), and [`jq`](https://stedolan.github.io/jq/).
+
+**Option A — as a plugin**
 
 ```bash
 claude plugin marketplace add evggzzz/cc-zaiquota
@@ -38,28 +60,50 @@ Then inside Claude Code:
 /cc-zaiquota:refresh
 ```
 
-Or one-liner (no plugin):
+**Option B — one-liner**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-Restart Claude Code. Run `/cc-zaiquota:refresh` whenever you want fresh numbers (the statusline otherwise shows the last-cached value with an "Nm ago" stamp).
+Both copy the scripts under `~/.claude/zaiquota/`, drop a composer at `~/.claude/statusline-compose.sh`, and point `statusLine` at it (a `.bak` backup is written first). **Restart Claude Code**, then run `/cc-zaiquota:refresh` to populate the cache.
 
-## How it works
+## 🔬 How it works
 
-- `quota-fetch.sh` → `GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`, saves `.data` + a timestamp to the cache.
-- `quota.sh` → parses the cache: `TOKENS_LIMIT` entries (5h = sooner reset, weekly = later reset) and `TIME_LIMIT` (MCP monthly); computes time-to-reset from each `nextResetTime`.
+- `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`, stores `.data` + a timestamp in the cache.
+- `quota.sh` → parses `data.limits[]`: the two `TOKENS_LIMIT` entries are 5h (sooner `nextResetTime`) and weekly (later); `TIME_LIMIT` is MCP monthly. Time-to-reset is computed live from each absolute `nextResetTime`.
 - `compose.sh` → runs cc-contextbar (line 1) then this widget (line 2); set as the `statusLine` command.
 
-## Uninstall
+## ⚙️ Customize
+
+Create `~/.claude/zaiquota/config.env` to override defaults:
+
+| Var | Default | Effect |
+|---|---|---|
+| `ZAI_SEGMENTS` | `10` | bar cell count |
+| `ZAI_FILL` / `ZAI_EMPTY` | `█` / `░` | bar glyphs |
+| `ZAI_ICONS` | `0` | `1` to prepend emoji icons (wide terminals) |
+
+```bash
+# ~/.claude/zaiquota/config.env
+ZAI_SEGMENTS=8
+ZAI_ICONS=1
+```
+
+## 🗑️ Uninstall
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-Reverts the statusline to cc-contextbar (if present) and removes `~/.claude/zaiquota/`.
+Reverts `statusLine` to cc-contextbar (if present) and removes `~/.claude/zaiquota/`.
 
-## License
+## ⭐ Star History
+
+<a href="https://star-history.com/#evggzzz/cc-zaiquota&Date">
+  <img src="https://api.star-history.com/svg?repos=evggzzz/cc-zaiquota&type=Date" alt="Star History" width="600">
+</a>
+
+## 📄 License
 
 MIT © [evggzzz](https://github.com/evggzzz)

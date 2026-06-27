@@ -6,6 +6,8 @@
 set -o pipefail
 
 CACHE="$HOME/.claude/zaiquota/quota.cache"
+# shellcheck source=/dev/null
+[ -f "$HOME/.claude/zaiquota/config.env" ] && . "$HOME/.claude/zaiquota/config.env"
 SEGMENTS=${ZAI_SEGMENTS:-10}
 FILL=${ZAI_FILL:-█}
 EMPTY=${ZAI_EMPTY:-░}
