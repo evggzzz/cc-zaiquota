@@ -60,14 +60,16 @@ z.ai はウィンドウを使い切った瞬間に制限をかけます。しか
 - `/cc-zaiquota:refresh` は z.ai 公式 `glm-plan-usage` と**同一のリクエスト**（`GET {baseDomain}/api/monitor/usage/quota/limit`、`Authorization: $ANTHROPIC_AUTH_TOKEN`）。エンドポイントもヘッダも同じなので、公式ツールと区別がつきません。
 - デフォルトはオンデマンドのみ（ポーリングループなし）。
 
-## ♻️ 自動更新
+## ♻️ 自動更新（OSデーモン）
 
-`Stop` と `SessionStart` フック経由でキャッシュを自動更新します。毎ターン終了時とセッション開始時に走り、**`ZAI_REFRESH_MIN`（デフォルト600秒）に1回までスロットル**されます。使っている間は最新を保ち、アイドル中はポーリングしません。
+バックグラウンドデーモンが `ZAI_REFRESH_MIN`（デフォルト600秒）ごとにキャッシュを更新します — macOSは**launchd**、Linuxは**cron**。Claude Codeとは独立に動くので、セッションを開いていない時やアイドル中も常に最新が保たれます。
 
-- 間隔を調整: `~/.claude/zaiquota/config.env` に `ZAI_REFRESH_MIN=300`
-- 即時更新: `/cc-zaiquota:refresh`（`--force` でスロットルを無視）
+- インストーラがz.aiの認証情報を `~/.claude/zaiquota/config.env`（chmod 600）に書き込みます — launchd/cronはシェルの環境変数を継承しないため、デーモンがAPIに届くために必要です。
+- 間隔を調整: `config.env` に `ZAI_REFRESH_MIN=300` を設定して `install.sh` を再実行。
+- 即時更新: `/cc-zaiquota:refresh`。
+- デーモンのログ: `~/.claude/zaiquota/daemon.log`。
 
-ステータスライン本体は**通信ゼロ**のまま。スロットル付きのフェッチャだけがAPIを叩きます。
+ステータスライン本体は**通信ゼロ**のままです。
 
 ## 🚀 インストール
 
@@ -92,7 +94,7 @@ claude plugin install cc-zaiquota@cc-zaiquota
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-どちらもスクリプトを `~/.claude/zaiquota/` に置き、`~/.claude/statusline-compose.sh` を生成して `statusLine` をそこに向けます（事前に `.bak` でバックアップ）。**Claude Code を再起動**し、`/cc-zaiquota:refresh` でキャッシュを取得してください。
+どちらもスクリプトを `~/.claude/zaiquota/` に置き、`~/.claude/statusline-compose.sh` を生成して `statusLine` をそこに向け、**OSの更新デーモン（macOS: launchd／Linux: cron）を導入**します（事前に `.bak` でバックアップ）。z.aiの認証情報は `config.env`（chmod 600）に保存されます。**Claude Code を再起動**してください。
 
 ## 🔬 仕組み
 

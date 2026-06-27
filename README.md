@@ -44,7 +44,7 @@ z.ai throttles you the moment a window fills — and you're flying blind, becaus
 | 🟢🟡🔴 **Color-coded** | Green → yellow → red as you burn a window. **Bold-red when you're about to get throttled.** |
 | ⚡ **Instant, not 20 s** | One shell call — not an LLM. Milliseconds. |
 | 🛡️ **Ban-safe** | Statusline = zero network. Refresh reuses z.ai's *exact* official request. |
-| ♻️ **Auto-refresh** | Throttled to ≤1 fetch per 10 min while you work; silent when idle. |
+| ♻️ **Auto-refresh (daemon)** | A launchd/cron daemon refreshes every ~10 min — even when Claude Code is closed. |
 | 🧩 **Stacks with cc-contextbar** | Two-line statusline next to [cc-contextbar](https://github.com/evggzzz/cc-contextbar). Works standalone too. |
 
 ## 📊 How it compares
@@ -85,7 +85,7 @@ Then in Claude Code:
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/statusline-compose.sh`, point `statusLine` at it, and register throttled `Stop`/`SessionStart` auto-refresh hooks (a `.bak` backup is written first). **Restart Claude Code**, then `/cc-zaiquota:refresh` once.
+Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/statusline-compose.sh`, point `statusLine` at it, and install an **OS refresh daemon** (launchd on macOS, cron on Linux). Your z.ai credentials are stored in `~/.claude/zaiquota/config.env` (chmod 600) so the daemon can reach the API. A `.bak` backup is written first. **Restart Claude Code**.
 
 ## 🔬 How it works
 
@@ -110,7 +110,7 @@ Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash -s -- --uninstall
 ```
 
-Reverts `statusLine` to cc-contextbar and removes the hooks + `~/.claude/zaiquota/`.
+Reverts `statusLine` to cc-contextbar and stops/removes the daemon + `~/.claude/zaiquota/`.
 
 ---
 

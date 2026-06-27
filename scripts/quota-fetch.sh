@@ -11,6 +11,8 @@
 set -euo pipefail
 
 CACHE_DIR="$HOME/.claude/zaiquota"
+# shellcheck source=/dev/null
+[ -f "$CACHE_DIR/config.env" ] && . "$CACHE_DIR/config.env"   # ZAI_* + ANTHROPIC_* (for launchd/cron, which don't inherit shell env)
 CACHE="$CACHE_DIR/quota.cache"
 MIN_INTERVAL=${ZAI_REFRESH_MIN:-600}
 

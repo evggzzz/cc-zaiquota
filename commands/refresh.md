@@ -10,4 +10,4 @@ Refresh the cached z.ai GLM Coding Plan quota so the statusline widget shows cur
 - On success: tell the user the cache is updated and the statusline will reflect it on the next render (or after restarting Claude Code).
 - On failure: show the error. The most common cause is `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` not being set in the environment.
 
-Note: the Stop/SessionStart hooks also refresh automatically (throttled to once per `ZAI_REFRESH_MIN` minutes), so manual refresh is only needed to force an immediate update.
+Note: a background daemon (launchd on macOS, cron on Linux) also refreshes automatically every `ZAI_REFRESH_MIN` seconds, so manual refresh is only needed to force an immediate update.
