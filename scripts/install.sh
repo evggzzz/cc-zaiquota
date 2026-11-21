@@ -8,7 +8,7 @@ set -euo pipefail
 
 ZAI_DIR="$HOME/.claude/zaiquota"
 SETTINGS="$HOME/.claude/settings.json"
-COMPOSE="$HOME/.claude/statusline-compose.sh"
+MIRROR="$ZAI_DIR/mirror.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 LABEL="com.evggzzz.cc-zaiquota"
 
@@ -127,7 +127,7 @@ if [ "${1:-install}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
   fi
   uninstall_daemon
   echo "   daemon stopped"
-  rm -rf "$ZAI_DIR" "$COMPOSE"
+  rm -rf "$ZAI_DIR"
   echo ">> Done. Restart Claude Code."
   exit 0
 fi
@@ -139,15 +139,15 @@ mkdir -p "$ZAI_DIR"
 fetch quota.sh           "$ZAI_DIR/quota.sh";           chmod +x "$ZAI_DIR/quota.sh"
 fetch quota-anthropic.sh "$ZAI_DIR/quota-anthropic.sh"; chmod +x "$ZAI_DIR/quota-anthropic.sh"
 fetch quota-fetch.sh     "$ZAI_DIR/quota-fetch.sh";     chmod +x "$ZAI_DIR/quota-fetch.sh"
-fetch compose.sh         "$COMPOSE";                    chmod +x "$COMPOSE"
+fetch mirror.sh          "$MIRROR";                     chmod +x "$MIRROR"
 
 ensure_credentials
 
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 cp "$SETTINGS" "$SETTINGS.bak"
 tmp=$(mktemp)
-jq --arg cmd "$COMPOSE" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-echo "   statusLine -> $COMPOSE  (backup: $SETTINGS.bak)"
+jq --arg cmd "/bin/bash $MIRROR" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+echo "   statusLine -> $MIRROR (stdin mirror; rendering is the mod's job)  (backup: $SETTINGS.bak)"
 
 cleanup_legacy_hooks
 install_daemon

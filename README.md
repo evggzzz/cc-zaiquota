@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.1.0-3fb950?style=flat-square"></a>
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.2.0-3fb950?style=flat-square"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
@@ -72,7 +72,7 @@ z.ai throttles you the moment a window fills — and you're flying blind, becaus
 
 If you switch providers per command — say a `claude` wrapper that exports the
 z.ai env and a plain `cl` on your Anthropic subscription — one install covers
-both. Every render, the composer checks `ANTHROPIC_BASE_URL`:
+both. Every render, the mod checks `ANTHROPIC_BASE_URL`:
 
 - contains `z.ai` → z.ai GLM Coding Plan quota (from the local cache)
 - anything else → claude.ai **plan rate limits** (`rate_limits.five_hour` /
@@ -81,8 +81,9 @@ both. Every render, the composer checks `ANTHROPIC_BASE_URL`:
 
 Each session shows its own provider's quota, same bars. Pin it in
 `config.env` with `ZAI_PROVIDER=zai` or `ZAI_PROVIDER=anthropic` if your setup
-hides the base URL. If you also run separate `CLAUDE_CONFIG_DIR`s, point each
-one's `settings.json` `statusLine` at the same composer.
+hides the base URL. If you also run separate `CLAUDE_CONFIG_DIR`s, run the
+installer once per config dir — each one's `settings.json` gets the same
+mirror wired, and the mod reads its own session's env.
 
 ## 🚀 Install
 
@@ -107,14 +108,16 @@ Then in Claude Code:
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/statusline-compose.sh`, point `statusLine` at it, and install an **OS refresh daemon** (launchd on macOS, cron on Linux). Your z.ai credentials are stored in `~/.claude/zaiquota/config.env` (chmod 600) so the daemon can reach the API. A `.bak` backup is written first. **Restart Claude Code**.
+Both drop the scripts under `~/.claude/zaiquota/`, point `statusLine` at a **silent stdin mirror** (`mirror.sh` — it writes the rate limits Claude Code passes to disk and renders nothing itself), and install an **OS refresh daemon** (launchd on macOS, cron on Linux). Your z.ai credentials are stored in `~/.claude/zaiquota/config.env` (chmod 600) so the daemon can reach the API. A `.bak` backup is written first. **Restart Claude Code**.
+
+The line on screen is drawn by the **hooks-module mod** (`hooks/register.ts`) shipped in this plugin — install via Option A (or load the folder as a dev mod) so it's enabled; it pins the quota line under the prompt and refreshes it every 30 s. On builds without the mod engine, `quota.sh` / `quota-anthropic.sh` are the drop-in bash renderers: point `statusLine` at either instead of `mirror.sh`.
 
 ## 🔬 How it works
 
 - `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`, stores `.data` + a timestamp.
-- `quota.sh` → parses `data.limits[]`: the two `TOKENS_LIMIT` entries are 5h (sooner `nextResetTime`) and weekly (later); `TIME_LIMIT` is MCP monthly. Countdowns are computed live from each absolute `nextResetTime`.
-- `quota-anthropic.sh` → renders `rate_limits.five_hour` / `rate_limits.seven_day` straight from the statusline stdin JSON (no network, nothing cached).
-- `compose.sh` → picks the widget by provider (see 🔀 above), runs cc-contextbar (line 1) then it (line 2); set as `statusLine`.
+- `hooks/register.ts` → the mod: picks the provider (see 🔀 above), reads the cache or the mirror, pins the line under the prompt with `$.ui.status`, and re-renders every 30 s so the countdowns move.
+- `mirror.sh` → the whole `statusLine` job in mod mode: writes the stdin JSON's `rate_limits` to `~/.claude/zaiquota/rate_limits.json`, prints nothing.
+- `quota.sh` / `quota-anthropic.sh` → the bash renderers, kept for builds without the mod engine (point `statusLine` at one instead of `mirror.sh`).
 
 ## ⚙️ Customize
 

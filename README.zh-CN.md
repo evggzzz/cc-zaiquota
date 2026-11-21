@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.1.0-3fb950?style=flat-square"></a>
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.2.0-3fb950?style=flat-square"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
@@ -78,7 +78,7 @@ z.ai 在某个窗口用满的瞬间就会限流 —— 而你常常是盲飞，�
 ## 🔀 z.ai 和 Anthropic 混用？
 
 如果按命令切换服务商——比如 `claude` 包装脚本加载 z.ai 的环境变量，`cl` 走
-Anthropic 订阅，GUI 保持默认——只需安装一次。composer 每次渲染都会检查
+Anthropic 订阅，GUI 保持默认——只需安装一次。mod 每次渲染都会检查
 `ANTHROPIC_BASE_URL`：
 
 - 含 `z.ai` → z.ai GLM Coding Plan 用量（读本地缓存）
@@ -114,14 +114,16 @@ claude plugin install cc-zaiquota@cc-zaiquota
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-两种方式都会把脚本放到 `~/.claude/zaiquota/`，在 `~/.claude/statusline-compose.sh` 放一个合成器，把 `statusLine` 指向它，并**安装一个系统刷新守护进程**（macOS: launchd／Linux: cron）。z.ai 凭证会存入 `config.env`（chmod 600）。会先备份为 `.bak`。**重启 Claude Code**。
+两种方式都会把脚本放到 `~/.claude/zaiquota/`，把 `statusLine` 指向一个**静默的 stdin 镜像**（`mirror.sh`——只把 Claude Code 传入的 rate_limits 写到磁盘，自己不渲染），并**安装一个系统刷新守护进程**（macOS: launchd／Linux: cron）。z.ai 凭证会存入 `config.env`（chmod 600）。会先备份为 `.bak`。**重启 Claude Code**。
+
+屏幕上的那一行由插件自带的 **hooks-module mod**（`hooks/register.ts`）渲染——用方式A（或把文件夹作为 dev mod 加载）启用它，它会把额度行钉在提示符下方，每 30 秒刷新。没有 mod 引擎的版本上，附带的 bash 渲染器（`quota.sh`／`quota-anthropic.sh`）可以直接替代：把 `statusLine` 指向其中之一而非 `mirror.sh`。
 
 ## 🔬 工作原理
 
 - `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`，把 `.data` 和时间戳存入缓存。
-- `quota.sh` → 解析 `data.limits[]`：两个 `TOKENS_LIMIT` 分别是 5 小时（`nextResetTime` 更早）和每周（更晚）；`TIME_LIMIT` 是 MCP 月度。重置倒计时根据绝对时间 `nextResetTime` 实时计算。
-- `quota-anthropic.sh` → 直接渲染状态栏 stdin JSON 里的 `rate_limits.five_hour` / `rate_limits.seven_day`（零网络、不缓存）。
-- `compose.sh` → 按服务商选择组件（见上面的 🔀），先跑 cc-contextbar（第 1 行），再跑它（第 2 行）；把它设为 `statusLine`。
+- `hooks/register.ts` → mod 本体：按服务商选择数据源（见上面的 🔀），读缓存或镜像，用 `$.ui.status` 把额度行钉在提示符下方，每 30 秒重绘倒计时。
+- `mirror.sh` → mod 模式下 `statusLine` 的全部工作：把 stdin JSON 的 `rate_limits` 写入 `~/.claude/zaiquota/rate_limits.json`，无输出。
+- `quota.sh` ／ `quota-anthropic.sh` → 供没有 mod 引擎的版本使用的 bash 渲染器（把 `statusLine` 指向其中之一替代 `mirror.sh`）。
 
 ## ⚙️ 自定义
 
