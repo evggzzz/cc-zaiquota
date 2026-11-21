@@ -3,10 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.0.0-3fb950?style=flat-square"></a>
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.2.0-3fb950?style=flat-square"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
+  <img src="https://img.shields.io/badge/claude.ai-Pro%2FMax%2FUltra-d97706?style=flat-square">
   <img src="https://img.shields.io/badge/built%20with-bash%20%2B%20jq-1f1f1f?style=flat-square">
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
@@ -14,6 +15,8 @@
 # 在被 z.ai 限流之前，先看清它。
 
 一个常驻 [Claude Code](https://code.claude.com) 状态栏的 z.ai GLM Coding Plan **用量仪表**。5 小时、每周、MCP 三个窗口，各带颜色条和重置倒计时。
+
+走 Anthropic 的会话，**v1.1 起自动切换**：`ANTHROPIC_BASE_URL` 里没有 z.ai 的会话，会直接显示 Claude Code 传给状态栏的 **claude.ai Pro/Max/Ultra 用量（5 小时 + 每周）**——无需额外请求，也无需配置。
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -30,6 +33,7 @@
 | | |
 |---|---|
 | ⏳ **一眼看清三个额度** | 5 小时滚动、每周（7 天）、MCP 月度，各自带颜色条、百分比和重置倒计时。 |
+| 🔀 **按服务商自动切换** | z.ai 会话显示 z.ai 用量；Anthropic 会话显示 claude.ai 套餐用量。同一个状态栏，零配置。 |
 | 🎨 **精致又紧凑** | 彩色电池条 + 加粗百分比 + 变淡的倒计时。默认不带双宽 emoji（宽屏终端可设 `ZAI_ICONS=1`）。 |
 | 🧩 **与 cc-contextbar 组合** | 叠在 [cc-contextbar](https://github.com/evggzzz/cc-contextbar) 下方组成两行状态栏，也可单独使用。 |
 | 🛡️ **防封号设计** | 状态栏只读缓存，**每次渲染零网络请求**。刷新按需触发，且复用 z.ai 官方的*同一请求*。 |
@@ -71,6 +75,22 @@ z.ai 在某个窗口用满的瞬间就会限流 —— 而你常常是盲飞，�
 
 状态栏组件仍然**零网络请求**。
 
+## 🔀 z.ai 和 Anthropic 混用？
+
+如果按命令切换服务商——比如 `claude` 包装脚本加载 z.ai 的环境变量，`cl` 走
+Anthropic 订阅，GUI 保持默认——只需安装一次。mod 每次渲染都会检查
+`ANTHROPIC_BASE_URL`：
+
+- 含 `z.ai` → z.ai GLM Coding Plan 用量（读本地缓存）
+- 其他 → claude.ai 的**套餐用量**（`rate_limits.five_hour` /
+  `rate_limits.seven_day`）。这是 Pro/Max/Ultra 会话中 Claude Code 通过
+  stdin 传给状态栏的官方数据（首次 API 响应后出现）
+
+每个会话只显示自己服务商的用量，样式相同。如果环境中不便暴露 base URL，可在
+`config.env` 写 `ZAI_PROVIDER=zai` 或 `ZAI_PROVIDER=anthropic` 固定。如果还
+按 `CLAUDE_CONFIG_DIR` 分了目录，把每个目录 `settings.json` 的 `statusLine`
+指向同一个 composer 即可。
+
 ## 🚀 安装
 
 > 需要环境变量 `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`（与官方插件相同），以及 [`jq`](https://stedolan.github.io/jq/)。
@@ -94,13 +114,16 @@ claude plugin install cc-zaiquota@cc-zaiquota
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-两种方式都会把脚本放到 `~/.claude/zaiquota/`，在 `~/.claude/statusline-compose.sh` 放一个合成器，把 `statusLine` 指向它，并**安装一个系统刷新守护进程**（macOS: launchd／Linux: cron）。z.ai 凭证会存入 `config.env`（chmod 600）。会先备份为 `.bak`。**重启 Claude Code**。
+两种方式都会把脚本放到 `~/.claude/zaiquota/`，把 `statusLine` 指向一个**静默的 stdin 镜像**（`mirror.sh`——只把 Claude Code 传入的 rate_limits 写到磁盘，自己不渲染），并**安装一个系统刷新守护进程**（macOS: launchd／Linux: cron）。z.ai 凭证会存入 `config.env`（chmod 600）。会先备份为 `.bak`。**重启 Claude Code**。
+
+屏幕上的那一行由插件自带的 **hooks-module mod**（`hooks/register.ts`）渲染——用方式A（或把文件夹作为 dev mod 加载）启用它，它会把额度行钉在提示符下方，每 30 秒刷新。没有 mod 引擎的版本上，附带的 bash 渲染器（`quota.sh`／`quota-anthropic.sh`）可以直接替代：把 `statusLine` 指向其中之一而非 `mirror.sh`。
 
 ## 🔬 工作原理
 
 - `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`，把 `.data` 和时间戳存入缓存。
-- `quota.sh` → 解析 `data.limits[]`：两个 `TOKENS_LIMIT` 分别是 5 小时（`nextResetTime` 更早）和每周（更晚）；`TIME_LIMIT` 是 MCP 月度。重置倒计时根据绝对时间 `nextResetTime` 实时计算。
-- `compose.sh` → 先跑 cc-contextbar（第 1 行），再跑本组件（第 2 行）；把它设为 `statusLine`。
+- `hooks/register.ts` → mod 本体：按服务商选择数据源（见上面的 🔀），读缓存或镜像，用 `$.ui.status` 把额度行钉在提示符下方，每 30 秒重绘倒计时。
+- `mirror.sh` → mod 模式下 `statusLine` 的全部工作：把 stdin JSON 的 `rate_limits` 写入 `~/.claude/zaiquota/rate_limits.json`，无输出。
+- `quota.sh` ／ `quota-anthropic.sh` → 供没有 mod 引擎的版本使用的 bash 渲染器（把 `statusLine` 指向其中之一替代 `mirror.sh`）。
 
 ## ⚙️ 自定义
 
@@ -108,10 +131,11 @@ curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/in
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `ZAI_SEGMENTS` | `10` | 进度条格子数 |
+| `ZAI_SEGMENTS` | `10` | 进度条格子数（两个组件通用） |
 | `ZAI_FILL` / `ZAI_EMPTY` | `█` / `░` | 进度条字符 |
 | `ZAI_ICONS` | `0` | `1` 显示 emoji 图标（宽屏终端） |
 | `ZAI_REFRESH_MIN` | `600` | 自动刷新最小间隔（秒） |
+| `ZAI_PROVIDER` | auto | 设 `zai` / `anthropic` 固定第 2 行（替代 `ANTHROPIC_BASE_URL` 判断） |
 
 ```bash
 # ~/.claude/zaiquota/config.env

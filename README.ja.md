@@ -3,10 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.0.0-3fb950?style=flat-square"></a>
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.2.0-3fb950?style=flat-square"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
+  <img src="https://img.shields.io/badge/claude.ai-Pro%2FMax%2FUltra-d97706?style=flat-square">
   <img src="https://img.shields.io/badge/built%20with-bash%20%2B%20jq-1f1f1f?style=flat-square">
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
@@ -14,6 +15,8 @@
 # z.ai の制限、引っかかる前にわかる。
 
 [Claude Code](https://code.claude.com) のステータスラインに常時表示される、z.ai GLM Coding Plan 向けの**クォータメーター**。5時間・週次・MCPの各ウィンドウを、カラーバーとリセットまでのカウントダウン付きで可視化します。
+
+Anthropic 側で使うセッションには **v1.1 から自動切り替え**：`ANTHROPIC_BASE_URL` に z.ai が含まれないセッションは、Claude Code がステータスラインに渡す **claude.ai Pro/Max/Ultra のレート制限（5時間＋週次）** をそのまま表示します。追加リクエストも設定も不要です。
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -30,6 +33,7 @@
 | | |
 |---|---|
 | ⏳ **3つのウィンドウを一目で** | 5時間ローリング・週次（7日）・MCP月次を、それぞれカラーバー＋％＋リセットまでの時間で表示します。 |
+| 🔀 **プロバイダ自動切り替え** | z.aiセッションなら z.ai クォータ、Anthropicセッションなら claude.ai のプラン使用率。同じステータスラインで、設定不要。 |
 | 🎨 **リッチかつコンパクト** | カラーのバッテリーバー＋太字の％＋薄い色のカウントダウン。デフォルトは2幅emojiなし（ワイド端末なら `ZAI_ICONS=1` で表示）。 |
 | 🧩 **cc-contextbar と合成** | [cc-contextbar](https://github.com/evggzzz/cc-contextbar) の下に重ねて2行ステータスラインに。単体でも使えます。 |
 | 🛡️ **BAN回避設計** | ステータスラインはキャッシュ読込のみで**描画ごとの通信ゼロ**。更新はオンデマンドで、z.ai公式と**同一のリクエスト**を使います。 |
@@ -71,6 +75,25 @@ z.ai はウィンドウを使い切った瞬間に制限をかけます。しか
 
 ステータスライン本体は**通信ゼロ**のままです。
 
+## 🔀 z.ai と Anthropic を併用する場合
+
+`claude` ラッパーで z.ai の env を読み込み、`cl` は Anthropic サブスク、
+GUI はそのまま、のようにプロバイダをコマンド単位で切り替えている場合も、
+インストールは 1 回で済みます。描画のたびに mod が `ANTHROPIC_BASE_URL` を判定します：
+
+- `z.ai` を含む → z.ai GLM Coding Plan のクォータ（ローカルキャッシュから）
+- それ以外 → claude.ai の**プラン使用率**（`rate_limits.five_hour` ／
+  `rate_limits.seven_day`）。Pro/Max/Ultra のセッションで、Claude Code が
+  ステータスラインの標準入力に渡してくれる公式データです（セッションの最初の
+  API応答以降に表示されます）
+
+各セッションは自分のプロバイダのクォータだけを表示します。ベースURLを env で
+見せたくない構成なら `config.env` に `ZAI_PROVIDER=zai` か
+`ZAI_PROVIDER=anthropic` を書いて固定してください。`CLAUDE_CONFIG_DIR` を
+分けている場合は、config dir ごとにインストーラを実行すれば、それぞれの
+`settings.json` に同じ mirror が配線され、mod は各セッション自身の env を
+読んで判定します。
+
 ## 🚀 インストール
 
 > 環境変数 `ANTHROPIC_BASE_URL`＋`ANTHROPIC_AUTH_TOKEN`（公式プラグインと同じ）と [`jq`](https://stedolan.github.io/jq/) が必要です。
@@ -94,13 +117,16 @@ claude plugin install cc-zaiquota@cc-zaiquota
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-どちらもスクリプトを `~/.claude/zaiquota/` に置き、`~/.claude/statusline-compose.sh` を生成して `statusLine` をそこに向け、**OSの更新デーモン（macOS: launchd／Linux: cron）を導入**します（事前に `.bak` でバックアップ）。z.aiの認証情報は `config.env`（chmod 600）に保存されます。**Claude Code を再起動**してください。
+どちらもスクリプトを `~/.claude/zaiquota/` に置き、`statusLine` を**無言のstdinミラー**（`mirror.sh` — Claude Codeが渡すJSONのrate_limitsをディスクに書くだけで、画面には何も出さない）に向け、**OSの更新デーモン（macOS: launchd／Linux: cron）を導入**します（事前に `.bak` でバックアップ）。z.aiの認証情報は `config.env`（chmod 600）に保存されます。**Claude Code を再起動**してください。
+
+画面への描画は、このプラグインに同梱の **hooks-module mod**（`hooks/register.ts`）が担います。方式A（またはdev modとしてフォルダを読み込み）でmodを有効にすると、プロンプト下にクォータ行をピン留めし、30秒ごとに再描画します。modエンジンのないビルドでは、同梱のbashレンダラ（`quota.sh`／`quota-anthropic.sh`）が代替です：`statusLine` を `mirror.sh` の代わりにどちらかへ向けてください。
 
 ## 🔬 仕組み
 
 - `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit` を叩き、`.data`＋タイムスタンプをキャッシュに保存。
-- `quota.sh` → `data.limits[]` を解析。2つの `TOKENS_LIMIT` は 5h（`nextResetTime` が早い方）と週次（遅い方）、`TIME_LIMIT` は MCP月次。リセットまでの時間は絶対時刻 `nextResetTime` から毎回リアルタイムで計算します。
-- `compose.sh` → cc-contextbar（1行目）と本ウィジェット（2行目）を順に実行。これを `statusLine` に設定します。
+- `hooks/register.ts` → mod本体。プロバイダを判定し（上の 🔀 参照）、キャッシュかミラーを読み、`$.ui.status` でプロンプト下に行をピン留め。30秒ごとに再描画してカウントダウンを動かします。
+- `mirror.sh` → modモードでの `statusLine` の仕事はこれだけ：stdin JSONの `rate_limits` を `~/.claude/zaiquota/rate_limits.json` に書き、出力はなし。
+- `quota.sh` ／ `quota-anthropic.sh` → modエンジンのないビルド向けのbashレンダラ（`statusLine` を `mirror.sh` の代わりにこちらへ向ける）。
 
 ## ⚙️ カスタマイズ
 
@@ -108,10 +134,11 @@ curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/in
 
 | 変数 | デフォルト | 効果 |
 |---|---|---|
-| `ZAI_SEGMENTS` | `10` | バーのセル数 |
+| `ZAI_SEGMENTS` | `10` | バーのセル数（両ウィジェット共通） |
 | `ZAI_FILL` / `ZAI_EMPTY` | `█` / `░` | バーの文字 |
 | `ZAI_ICONS` | `0` | `1` でemojiアイコンを表示（ワイド端末向け） |
 | `ZAI_REFRESH_MIN` | `600` | 自動更新の最小間隔（秒） |
+| `ZAI_PROVIDER` | auto | `zai` / `anthropic` で2行目を固定（`ANTHROPIC_BASE_URL` 判定の代わり） |
 
 ```bash
 # ~/.claude/zaiquota/config.env

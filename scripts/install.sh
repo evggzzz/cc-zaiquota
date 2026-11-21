@@ -8,7 +8,7 @@ set -euo pipefail
 
 ZAI_DIR="$HOME/.claude/zaiquota"
 SETTINGS="$HOME/.claude/settings.json"
-COMPOSE="$HOME/.claude/statusline-compose.sh"
+MIRROR="$ZAI_DIR/mirror.sh"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 LABEL="com.evggzzz.cc-zaiquota"
 
@@ -76,8 +76,9 @@ uninstall_launchd() {
 # --- Linux cron ---
 install_cron() {
   local interval minutes; interval=$(refresh_interval); minutes=$(( interval / 60 )); [ "$minutes" -lt 1 ] && minutes=1
-  ( crontab -l 2>/dev/null | grep -v "cc-zaiquota/quota-fetch.sh"; \
-    echo "*/$minutes * * * * /bin/bash $ZAI_DIR/quota-fetch.sh >/dev/null 2>&1" ) | crontab -
+  # tolerate "no crontab for user" on first install (set -euo pipefail would abort otherwise)
+  local existing; existing=$( { crontab -l 2>/dev/null || true; } | grep -v "cc-zaiquota/quota-fetch.sh" || true)
+  printf '%s\n' "$existing" "*/$minutes * * * * /bin/bash $ZAI_DIR/quota-fetch.sh >/dev/null 2>&1" | crontab -
   echo "   cron -> every ${minutes} min"
 }
 uninstall_cron() {
@@ -126,7 +127,7 @@ if [ "${1:-install}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
   fi
   uninstall_daemon
   echo "   daemon stopped"
-  rm -rf "$ZAI_DIR" "$COMPOSE"
+  rm -rf "$ZAI_DIR"
   echo ">> Done. Restart Claude Code."
   exit 0
 fi
@@ -135,17 +136,18 @@ echo ">> Installing cc-zaiquota..."
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq required (brew install jq)" >&2; exit 1; }
 
 mkdir -p "$ZAI_DIR"
-fetch quota.sh        "$ZAI_DIR/quota.sh";        chmod +x "$ZAI_DIR/quota.sh"
-fetch quota-fetch.sh  "$ZAI_DIR/quota-fetch.sh";  chmod +x "$ZAI_DIR/quota-fetch.sh"
-fetch compose.sh      "$COMPOSE";                 chmod +x "$COMPOSE"
+fetch quota.sh           "$ZAI_DIR/quota.sh";           chmod +x "$ZAI_DIR/quota.sh"
+fetch quota-anthropic.sh "$ZAI_DIR/quota-anthropic.sh"; chmod +x "$ZAI_DIR/quota-anthropic.sh"
+fetch quota-fetch.sh     "$ZAI_DIR/quota-fetch.sh";     chmod +x "$ZAI_DIR/quota-fetch.sh"
+fetch mirror.sh          "$MIRROR";                     chmod +x "$MIRROR"
 
 ensure_credentials
 
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
 cp "$SETTINGS" "$SETTINGS.bak"
 tmp=$(mktemp)
-jq --arg cmd "$COMPOSE" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
-echo "   statusLine -> $COMPOSE  (backup: $SETTINGS.bak)"
+jq --arg cmd "/bin/bash $MIRROR" '.statusLine={"type":"command","command":$cmd,"padding":0}' "$SETTINGS" > "$tmp" && mv "$tmp" "$SETTINGS"
+echo "   statusLine -> $MIRROR (stdin mirror; rendering is the mod's job)  (backup: $SETTINGS.bak)"
 
 cleanup_legacy_hooks
 install_daemon

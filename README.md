@@ -3,10 +3,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.0.0-3fb950?style=flat-square"></a>
+  <a href="https://github.com/evggzzz/cc-zaiquota/releases"><img src="https://img.shields.io/badge/version-1.2.0-3fb950?style=flat-square"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square">
   <img src="https://img.shields.io/badge/z.ai-Coding%20Plan-6f42c1?style=flat-square">
+  <img src="https://img.shields.io/badge/claude.ai-Pro%2FMax%2FUltra-d97706?style=flat-square">
   <img src="https://img.shields.io/badge/built%20with-bash%20%2B%20jq-1f1f1f?style=flat-square">
   <img src="https://img.shields.io/github/stars/evggzzz/cc-zaiquota?style=flat-square&color=yellow">
 </p>
@@ -16,6 +17,10 @@
 A live, battery-style **quota meter for the z.ai GLM Coding Plan**, right in your
 [Claude Code](https://code.claude.com) statusline. The 5-hour, weekly, and MCP
 windows — each with a color-coded bar and a countdown to reset.
+
+Talking to Anthropic instead? **v1.1 auto-switches**: sessions without z.ai in
+`ANTHROPIC_BASE_URL` show the **claude.ai Pro/Max/Ultra rate limits** (5h + weekly)
+that Claude Code itself feeds the statusline — no extra requests, no config.
 
 <p align="center">
   <sub><a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.ja.md">日本語</a></sub>
@@ -41,6 +46,7 @@ z.ai throttles you the moment a window fills — and you're flying blind, becaus
 | | |
 |---|---|
 | ⏳ **Three windows, one glance** | 5h rolling · weekly · MCP — each a colored bar, a %, and a reset countdown. |
+| 🔀 **Auto provider switch** | z.ai session → z.ai quota. Anthropic session → claude.ai plan rate limits. Same statusline, zero config. |
 | 🟢🟡🔴 **Color-coded** | Green → yellow → red as you burn a window. **Bold-red when you're about to get throttled.** |
 | ⚡ **Instant, not 20 s** | One shell call — not an LLM. Milliseconds. |
 | 🛡️ **Ban-safe** | Statusline = zero network. Refresh reuses z.ai's *exact* official request. |
@@ -61,6 +67,23 @@ z.ai throttles you the moment a window fills — and you're flying blind, becaus
 
 - The statusline reads a local cache — **zero network per render**.
 - A refresh sends the **exact** official request (`GET {baseDomain}/api/monitor/usage/quota/limit` with `Authorization: $ANTHROPIC_AUTH_TOKEN`). Same endpoint, same headers → indistinguishable from `glm-plan-usage`.
+
+## 🔀 Running z.ai and Anthropic side by side?
+
+If you switch providers per command — say a `claude` wrapper that exports the
+z.ai env and a plain `cl` on your Anthropic subscription — one install covers
+both. Every render, the mod checks `ANTHROPIC_BASE_URL`:
+
+- contains `z.ai` → z.ai GLM Coding Plan quota (from the local cache)
+- anything else → claude.ai **plan rate limits** (`rate_limits.five_hour` /
+  `rate_limits.seven_day`), which Claude Code passes to the statusline on stdin
+  for Pro/Max/Ultra sessions — they appear after the first API response
+
+Each session shows its own provider's quota, same bars. Pin it in
+`config.env` with `ZAI_PROVIDER=zai` or `ZAI_PROVIDER=anthropic` if your setup
+hides the base URL. If you also run separate `CLAUDE_CONFIG_DIR`s, run the
+installer once per config dir — each one's `settings.json` gets the same
+mirror wired, and the mod reads its own session's env.
 
 ## 🚀 Install
 
@@ -85,13 +108,16 @@ Then in Claude Code:
 curl -fsSL https://raw.githubusercontent.com/evggzzz/cc-zaiquota/main/scripts/install.sh | bash
 ```
 
-Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/statusline-compose.sh`, point `statusLine` at it, and install an **OS refresh daemon** (launchd on macOS, cron on Linux). Your z.ai credentials are stored in `~/.claude/zaiquota/config.env` (chmod 600) so the daemon can reach the API. A `.bak` backup is written first. **Restart Claude Code**.
+Both drop the scripts under `~/.claude/zaiquota/`, point `statusLine` at a **silent stdin mirror** (`mirror.sh` — it writes the rate limits Claude Code passes to disk and renders nothing itself), and install an **OS refresh daemon** (launchd on macOS, cron on Linux). Your z.ai credentials are stored in `~/.claude/zaiquota/config.env` (chmod 600) so the daemon can reach the API. A `.bak` backup is written first. **Restart Claude Code**.
+
+The line on screen is drawn by the **hooks-module mod** (`hooks/register.ts`) shipped in this plugin — install via Option A (or load the folder as a dev mod) so it's enabled; it pins the quota line under the prompt and refreshes it every 30 s. On builds without the mod engine, `quota.sh` / `quota-anthropic.sh` are the drop-in bash renderers: point `statusLine` at either instead of `mirror.sh`.
 
 ## 🔬 How it works
 
 - `quota-fetch.sh` → `GET /api/monitor/usage/quota/limit`, stores `.data` + a timestamp.
-- `quota.sh` → parses `data.limits[]`: the two `TOKENS_LIMIT` entries are 5h (sooner `nextResetTime`) and weekly (later); `TIME_LIMIT` is MCP monthly. Countdowns are computed live from each absolute `nextResetTime`.
-- `compose.sh` → runs cc-contextbar (line 1) then this widget (line 2); set as `statusLine`.
+- `hooks/register.ts` → the mod: picks the provider (see 🔀 above), reads the cache or the mirror, pins the line under the prompt with `$.ui.status`, and re-renders every 30 s so the countdowns move.
+- `mirror.sh` → the whole `statusLine` job in mod mode: writes the stdin JSON's `rate_limits` to `~/.claude/zaiquota/rate_limits.json`, prints nothing.
+- `quota.sh` / `quota-anthropic.sh` → the bash renderers, kept for builds without the mod engine (point `statusLine` at one instead of `mirror.sh`).
 
 ## ⚙️ Customize
 
@@ -99,10 +125,11 @@ Both drop the scripts under `~/.claude/zaiquota/`, add a composer at `~/.claude/
 
 | Var | Default | Effect |
 |---|---|---|
-| `ZAI_SEGMENTS` | `10` | bar cells |
+| `ZAI_SEGMENTS` | `10` | bar cells (both widgets) |
 | `ZAI_FILL` / `ZAI_EMPTY` | `█` / `░` | bar glyphs |
 | `ZAI_ICONS` | `0` | `1` = emoji icons (wide terminals) |
 | `ZAI_REFRESH_MIN` | `600` | auto-refresh min interval (s) |
+| `ZAI_PROVIDER` | auto | `zai` / `anthropic` to pin line 2 instead of `ANTHROPIC_BASE_URL` sniffing |
 
 ## 🗑️ Uninstall
 
