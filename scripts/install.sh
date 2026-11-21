@@ -76,8 +76,9 @@ uninstall_launchd() {
 # --- Linux cron ---
 install_cron() {
   local interval minutes; interval=$(refresh_interval); minutes=$(( interval / 60 )); [ "$minutes" -lt 1 ] && minutes=1
-  ( crontab -l 2>/dev/null | grep -v "cc-zaiquota/quota-fetch.sh"; \
-    echo "*/$minutes * * * * /bin/bash $ZAI_DIR/quota-fetch.sh >/dev/null 2>&1" ) | crontab -
+  # tolerate "no crontab for user" on first install (set -euo pipefail would abort otherwise)
+  local existing; existing=$( { crontab -l 2>/dev/null || true; } | grep -v "cc-zaiquota/quota-fetch.sh" || true)
+  printf '%s\n' "$existing" "*/$minutes * * * * /bin/bash $ZAI_DIR/quota-fetch.sh >/dev/null 2>&1" | crontab -
   echo "   cron -> every ${minutes} min"
 }
 uninstall_cron() {
@@ -135,9 +136,10 @@ echo ">> Installing cc-zaiquota..."
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq required (brew install jq)" >&2; exit 1; }
 
 mkdir -p "$ZAI_DIR"
-fetch quota.sh        "$ZAI_DIR/quota.sh";        chmod +x "$ZAI_DIR/quota.sh"
-fetch quota-fetch.sh  "$ZAI_DIR/quota-fetch.sh";  chmod +x "$ZAI_DIR/quota-fetch.sh"
-fetch compose.sh      "$COMPOSE";                 chmod +x "$COMPOSE"
+fetch quota.sh           "$ZAI_DIR/quota.sh";           chmod +x "$ZAI_DIR/quota.sh"
+fetch quota-anthropic.sh "$ZAI_DIR/quota-anthropic.sh"; chmod +x "$ZAI_DIR/quota-anthropic.sh"
+fetch quota-fetch.sh     "$ZAI_DIR/quota-fetch.sh";     chmod +x "$ZAI_DIR/quota-fetch.sh"
+fetch compose.sh         "$COMPOSE";                    chmod +x "$COMPOSE"
 
 ensure_credentials
 
