@@ -38,6 +38,16 @@ function seg(label: string, pct: number, resetTxt: string): string {
   return `${label} [${bar(pct)}] ${Math.floor(pct)}% ${resetTxt}`
 }
 
+function dur(sec: number): string {
+  const r = Math.max(0, Math.floor(sec))
+  const d = Math.floor(r / 86400)
+  const h = Math.floor((r % 86400) / 3600)
+  const m = Math.floor((r % 3600) / 60)
+  if (d > 0) return `${d}d${h}h`
+  if (h > 0) return `${h}h${m}m`
+  return `${m}m`
+}
+
 async function readJson($: any, path: string): Promise<any> {
   try {
     const raw = await $.fs.read(path)
@@ -88,6 +98,11 @@ async function render($: any): Promise<void> {
       parts.push(seg('wk', tokens[1].percentage ?? 0, remain((tokens[1].nextResetTime ?? 0) / 1000, nowSec)))
     }
     if (mcp) parts.push(`MCP ${Math.floor(mcp.percentage ?? 0)}%`)
+    // the daemon refreshes every ~10 min; flag data older than two intervals so a
+    // dead cron can't masquerade as a live meter (the old bash widget had this)
+    const fetched = typeof cache?.fetched_at === 'number' ? cache.fetched_at : 0
+    const age = fetched > 0 ? nowSec - fetched : 0
+    if (age > 1200) parts.push(`stale ${dur(age)}`)
     $.ui.status(`⏳ ${parts.join(' · ')}`)
     return
   }

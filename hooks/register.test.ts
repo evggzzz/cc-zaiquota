@@ -103,3 +103,39 @@ test('a ZAI_PROVIDER pin in config.env beats the base URL', async ($, on) => {
   expect(seen.at(-1)).toContain('23%')
   expect(seen.at(-1)).not.toContain('MCP')
 })
+
+test('a z.ai cache older than two refresh intervals is flagged stale', async ($, on) => {
+  // clock.now is pinned to 1795270509000; fetched_at is one hour older
+  const seen = seed($, on, {
+    base: 'https://api.z.ai/api/anthropic',
+    files: {
+      'config.env': '',
+      'quota.cache': JSON.stringify({
+        fetched_at: 1795266900,
+        data: {
+          limits: [
+            { type: 'TOKENS_LIMIT', percentage: 20, nextResetTime: 1795299000000 },
+            { type: 'TOKENS_LIMIT', percentage: 35, nextResetTime: 1795900000000 },
+            { type: 'TIME_LIMIT', percentage: 24 },
+          ],
+        },
+      }),
+    },
+  })
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  expect(seen.at(-1)).toContain('stale')
+  expect(seen.at(-1)).toContain('1h')
+})
+
+test('a fresh cache shows no stale marker', async ($, on) => {
+  const seen = seed($, on, {
+    base: 'https://api.z.ai/api/anthropic',
+    files: { 'config.env': '', 'quota.cache': ZAI_CACHE }, // fetched_at 1795270509 == pinned now
+  })
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+
+  expect(seen.at(-1)).not.toContain('stale')
+})

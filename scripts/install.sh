@@ -76,13 +76,16 @@ uninstall_launchd() {
 # --- Linux cron ---
 install_cron() {
   local interval minutes; interval=$(refresh_interval); minutes=$(( interval / 60 )); [ "$minutes" -lt 1 ] && minutes=1
-  # tolerate "no crontab for user" on first install (set -euo pipefail would abort otherwise)
-  local existing; existing=$( { crontab -l 2>/dev/null || true; } | grep -v "cc-zaiquota/quota-fetch.sh" || true)
+  # tolerate "no crontab for user" on first install (set -euo pipefail would abort otherwise).
+  # match the real line's distinctive part ($HOME/.claude/zaiquota/...), not the repo name —
+  # the installed path never contains "cc-zaiquota", so that pattern matched nothing and
+  # every re-install appended a duplicate line.
+  local existing; existing=$( { crontab -l 2>/dev/null || true; } | grep -v "zaiquota/quota-fetch.sh" || true)
   printf '%s\n' "$existing" "*/$minutes * * * * /bin/bash $ZAI_DIR/quota-fetch.sh >/dev/null 2>&1" | crontab -
   echo "   cron -> every ${minutes} min"
 }
 uninstall_cron() {
-  crontab -l 2>/dev/null | grep -v "cc-zaiquota/quota-fetch.sh" | crontab - 2>/dev/null || true
+  crontab -l 2>/dev/null | grep -v "zaiquota/quota-fetch.sh" | crontab - 2>/dev/null || true
 }
 
 install_daemon() {
